@@ -106,17 +106,17 @@ uint8_t FIFO_CTL        = 0x38 ; 	// FIFO control
 uint8_t FIFO_STATUS     = 0x39 ; 	// FIFO status
 
 
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-    if(GPIO_Pin == GPIO_PIN_9)  // INT2 - Activity
-    {
-    	printf("Activity\r\n");
-    }
-    else if(GPIO_Pin == GPIO_PIN_7)  // INT1 - Inactivity
-    {
-        printf("Inactivity\r\n");
-    }
-}
+//void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+//{
+//    if(GPIO_Pin == GPIO_PIN_9)  // INT2 - Activity
+//    {
+//    	printf("Activity\r\n");
+//    }
+//    else if(GPIO_Pin == GPIO_PIN_7)  // INT1 - Inactivity
+//    {
+//        printf("Inactivity\r\n");
+//    }
+//}
 
 void adxl_write (uint8_t Reg, uint8_t data)
 {
@@ -243,8 +243,15 @@ int main(void)
 //	      count++;
 //	  }
 
+	  if(int_source & (1 << 4)) // check D4 activity
+	  {
+		  printf("Movement \r\n");
+		  printf("ID Device: 0x%X === X:\%.3f; Y:%.3f ; Z:%.3f \r\n",chipID,xg,yg,zg);
+	  }
+
+
 //	  printf("ID Device: 0x%X === X:\%.3f; Y:%.3f ; Z:%.3f \r\n",chipID,xg,yg,zg);
-	  HAL_Delay(1);
+	  HAL_Delay(10);
   }
   /* USER CODE END 3 */
 }

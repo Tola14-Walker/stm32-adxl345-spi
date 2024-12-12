@@ -60,8 +60,8 @@ all: main-build
 main-build: ADXL345.elf secondary-outputs
 
 # Tool invocations
-ADXL345.elf ADXL345.map: $(OBJS) $(USER_OBJS) C:\Users\PC\STM32CubeIDE\workspace_1.16.1\ADXL345\STM32L152RCTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "ADXL345.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"C:\Users\PC\STM32CubeIDE\workspace_1.16.1\ADXL345\STM32L152RCTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="ADXL345.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
+ADXL345.elf ADXL345.map: $(OBJS) $(USER_OBJS) D:\IG\ Tech\stm32-adxl345-spi\STM32L152RCTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "ADXL345.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"D:\IG Tech\stm32-adxl345-spi\STM32L152RCTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="ADXL345.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
