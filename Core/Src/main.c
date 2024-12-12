@@ -65,10 +65,13 @@ int _write(int32_t file, uint8_t *ptr, int32_t len)
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 uint8_t RxData[6];
-uint8_t status = 0 ;
 int16_t x,y,z;
 uint8_t chipID = 0;
 float xg, yg, zg;
+
+uint8_t int_source = 0;
+
+int count = 0;
 
 // Device Registers for ADXL345 Accelerometer
 uint8_t DEVICE			= 0x00 ;	// Device ID
@@ -103,17 +106,17 @@ uint8_t FIFO_CTL        = 0x38 ; 	// FIFO control
 uint8_t FIFO_STATUS     = 0x39 ; 	// FIFO status
 
 
-//void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-//{
-//    if(GPIO_Pin == GPIO_PIN_9)
-//    {
-//    	printf("ADXL375 is Movement.\r\n");
-//    }
-//    else if(GPIO_Pin == GPIO_PIN_7)
-//    {
-//    	printf("ADXL375 is not Movement.\r\n");
-//    }
-//}
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    if(GPIO_Pin == GPIO_PIN_9)  // INT2 - Activity
+    {
+    	printf("Activity\r\n");
+    }
+    else if(GPIO_Pin == GPIO_PIN_7)  // INT1 - Inactivity
+    {
+        printf("Inactivity\r\n");
+    }
+}
 
 void adxl_write (uint8_t Reg, uint8_t data)
 {
@@ -128,11 +131,11 @@ void adxl_write (uint8_t Reg, uint8_t data)
 void adxl_read (uint8_t Reg, uint8_t *Buffer, size_t len)
 {
 	Reg |= 0x80;  // read operation
-	Reg |= 0x40;  // multibyte read
-	HAL_GPIO_WritePin (GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);  // pull the cs pin low to enable the slave
+	Reg |= 0x40;  // multi-byte read
+	HAL_GPIO_WritePin (GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);  // pull the CS pin low to enable the slave
 	HAL_SPI_Transmit (&hspi1, &Reg, 1, 100);  // send the address from where you want to read data
 	HAL_SPI_Receive (&hspi1, Buffer, len, 100);  // read 6 BYTES of data
-	HAL_GPIO_WritePin (GPIOB, GPIO_PIN_6, GPIO_PIN_SET);  // pull the cs pin high to disable the slave
+	HAL_GPIO_WritePin (GPIOB, GPIO_PIN_6, GPIO_PIN_SET);  // pull the CS pin high to disable the slave
 }
 
 void adxl_init (void)
@@ -140,33 +143,41 @@ void adxl_init (void)
 	adxl_read(DEVICE, &chipID, 1);
 	if (chipID == 0xE5)
 	{
-		adxl_write (POWER_CTL, 0x00);
-		adxl_write (POWER_CTL, 0x08);		// Charge power mode to measure mode
-		adxl_write (BW_RATE, 0x0D);			// Disable sleep mode Output Data Rate 800Hz
+		adxl_write (POWER_CTL, 0x00);		// Standby mode for initialize
+
 		adxl_write (DATA_FORMAT, 0x0B);		// ±16 g full resolution 13-bit mode and right-justified mode
 
-//		adxl_write (OFSX, 0xFE);
-//		adxl_write (OFSY, 0xFE);
-//		adxl_write (OFSZ, 0xFE);
-
-//		adxl_write (INT_ENBLE, 0x00);
-//
-//		adxl_write (THRESH_ACT, 0x01);
-//
-//		adxl_write (THRESH_INACT, 0x01);
-//		adxl_write (TIME_INACT, 0x1E);
-//
-//		adxl_write (ACT_INACT_CTL, 0x66);
-
-//		adxl_write (BW_RATE, 0x0D);			// Disable sleep mode Output Data Rate 800Hz
-
-//		adxl_write (INT_MAP, 0x10);
-//
-//		adxl_write (INT_ENBLE, 0x18);
-
-//		adxl_write (FIFO_CTL, 0xE1);
+		// The scale factor of offset is 15.6mg/LSB = 0.0156g/LSB
+		adxl_write (OFSX, 0x03);			// x_avg (100 samples) = -0.04989g
+		adxl_write (OFSY, 0x03);			// y_avg (100 samples) = -0.03662g
+		adxl_write (OFSZ, 0x03);			// z_avg (100 samples) = 0.946931g
 
 
+
+		// The scale factor of threshold activity is 62.5mg/LSB = 0.0625g/LSB
+		adxl_write (THRESH_ACT, 0x02);		// set threshold activity 0.125g
+
+		// The scale factor of threshold inactivity is 62.5mg/LSB = 0.0625g/LSB
+		adxl_write (THRESH_INACT, 0x02);	// set threshold inactivity 0.125g
+		// The scale factor of time inactivity is 1sec/LSB
+		adxl_write (TIME_INACT, 0x1E);		// set time inactivity 30s
+
+		// Control activity detection axis
+		// ACT_ACT_CTL 0x60: 0110 0000 DC-coupled and detected X and Y axis
+		// ACT_INACT_CTL 0x06: 0000 0110 DC-coupled and detected X and Y axis
+		adxl_write (ACT_INACT_CTL, 0x44);
+
+		adxl_write (INT_ENABLE, 0x00);		// Clear interrupt functions
+		adxl_write (INT_MAP, 0x10);			// Activity D4 INIT2 and Inactivity D3 INT3
+		adxl_write (INT_ENABLE, 0x9B);		// Enable interrupt activity and inactivity function
+
+//		adxl_write (FIFO_CTL, 0xCA);		// 10-sample, trigger mode and link with INT1
+
+		adxl_write (BW_RATE, 0x0D);			// Disable sleep mode Output Data Rate 800Hz
+
+		adxl_write (POWER_CTL, 0x28);		// Charge power mode to measure mode and enable link bit
+
+		HAL_Delay(100);
 	}
 }
 
@@ -186,7 +197,7 @@ int main(void)
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+   HAL_Init();
 
   /* USER CODE BEGIN Init */
 
@@ -225,8 +236,15 @@ int main(void)
 	  yg = (float)y/256 ;
 	  zg = (float)z/256 ;
 
-	  printf("ID Device: 0x%X === X:\%f; Y:%f ; Z:%f \r\n",chipID,xg,yg,zg);
-	  HAL_Delay(100);
+//	  if( count <= 500)
+//	  {
+//		  // Print it as data CSV format file
+//	      printf("%d;\%.3f; %.3f; %.3f\r\n",count,xg,yg,zg);
+//	      count++;
+//	  }
+
+//	  printf("ID Device: 0x%X === X:\%.3f; Y:%.3f ; Z:%.3f \r\n",chipID,xg,yg,zg);
+	  HAL_Delay(1);
   }
   /* USER CODE END 3 */
 }
@@ -325,10 +343,23 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : PC7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_7;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PA9 */
+  GPIO_InitStruct.Pin = GPIO_PIN_9;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PB6 */
   GPIO_InitStruct.Pin = GPIO_PIN_6;
@@ -336,6 +367,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
