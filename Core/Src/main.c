@@ -106,17 +106,17 @@ uint8_t FIFO_CTL        = 0x38 ; 	// FIFO control
 uint8_t FIFO_STATUS     = 0x39 ; 	// FIFO status
 
 
-//void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-//{
-//    if(GPIO_Pin == GPIO_PIN_9)  // INT2 - Activity
-//    {
-//    	printf("Activity\r\n");
-//    }
-//    else if(GPIO_Pin == GPIO_PIN_7)  // INT1 - Inactivity
-//    {
-//        printf("Inactivity\r\n");
-//    }
-//}
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    if(GPIO_Pin == GPIO_PIN_9)  // INT2 - Activity
+    {
+    	if(int_source & (1 << 4)) // check D4 activity
+    	{
+
+    		printf("Activity Detection.\r\n");
+    	}
+    }
+}
 
 void adxl_write (uint8_t Reg, uint8_t data)
 {
@@ -133,8 +133,8 @@ void adxl_read (uint8_t Reg, uint8_t *Buffer, size_t len)
 	Reg |= 0x80;  // read operation
 	Reg |= 0x40;  // multi-byte read
 	HAL_GPIO_WritePin (GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);  // pull the CS pin low to enable the slave
-	HAL_SPI_Transmit (&hspi1, &Reg, 1, 100);  // send the address from where you want to read data
-	HAL_SPI_Receive (&hspi1, Buffer, len, 100);  // read 6 BYTES of data
+	HAL_SPI_Transmit (&hspi1, &Reg, 1, 10);  // send the address from where you want to read data
+	HAL_SPI_Receive (&hspi1, Buffer, len, 10);  // read 6 BYTES of data
 	HAL_GPIO_WritePin (GPIOB, GPIO_PIN_6, GPIO_PIN_SET);  // pull the CS pin high to disable the slave
 }
 
@@ -144,8 +144,6 @@ void adxl_init (void)
 	if (chipID == 0xE5)
 	{
 		adxl_write (POWER_CTL, 0x00);		// Standby mode for initialize
-
-//		adxl_write (POWER_CTL, 0x08);		// Charge power mode to measure mode and enable link bit
 
 		adxl_write (BW_RATE, 0x0D);			// Disable sleep mode Output Data Rate 800Hz
 
@@ -160,7 +158,7 @@ void adxl_init (void)
 
 
 		// The scale factor of threshold activity is 62.5mg/LSB = 0.0625g/LSB
-		adxl_write (THRESH_ACT, 0x05);		// set threshold activity
+		adxl_write (THRESH_ACT, 0x03);		// set threshold activity
 
 //		adxl_write (THRESH_INACT, 0x02);	// set threshold inactivity 0.125g
 //		// The scale factor of time inactivity is 1sec/LSB
@@ -169,11 +167,11 @@ void adxl_init (void)
 		// Control activity detection axis
 		// ACT_ACT_CTL 0x60: 0110 0000 DC-coupled and detected X and Y axis
 		// ACT_INACT_CTL 0x06: 0000 0110 DC-coupled and detected X and Y axis
-		adxl_write (ACT_INACT_CTL, 0x40);
+		adxl_write (ACT_INACT_CTL, 0x60);
 
 		adxl_write (INT_ENABLE, 0x00);		// Clear interrupt functions
-		adxl_write (INT_MAP, 0x10);			// Activity D4 INIT2 and Inactivity D3 INT3
-		adxl_write (INT_ENABLE, 0x9B);		// Enable interrupt activity and inactivity function
+		adxl_write (INT_MAP, 0x10);			// Activity D4 INIT2
+		adxl_write (INT_ENABLE, 0x10);		// Enable interrupt activity and inactivity function
 
 //		adxl_write (FIFO_CTL, 0xCA);		// 10-sample, trigger mode and link with INT1
 
@@ -238,9 +236,9 @@ int main(void)
 	  z = ((RxData[5] << 8) | RxData[4]);
 
 	  // Convert into 'g'
-	  xg = (float)x/256 ;
-	  yg = (float)y/256 ;
-	  zg = (float)z/256 ;
+	  xg = (float)x*0.0039 ;
+	  yg = (float)y*0.0039 ;
+	  zg = (float)z*0.0039 ;
 
 //	  if( count <= 500)
 //	  {
@@ -249,11 +247,12 @@ int main(void)
 //	      count++;
 //	  }
 
-	  if(int_source & (1 << 4)) // check D4 activity
-	  {
-		  printf("Movement \r\n");
-		  printf("ID Device: 0x%X === X:\%.3f; Y:%.3f ; Z:%.3f \r\n",chipID,xg,yg,zg);
-	  }
+//	  if(int_source & (1 << 4)) // check D4 activity
+//	  {
+//		  printf("Movement \r\n");
+//		  printf("0x%X",int_source);
+//		  printf("ID Device: 0x%X === X:\%.3f; Y:%.3f ; Z:%.3f \r\n",chipID,xg,yg,zg);
+//	  }
 
 //	  printf("0x%X",int_source);
 //	  printf("ID Device: 0x%X === X:\%.3f; Y:%.3f ; Z:%.3f \r\n",chipID,xg,yg,zg);
@@ -356,22 +355,15 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : PC7 */
-  GPIO_InitStruct.Pin = GPIO_PIN_7;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
   /*Configure GPIO pin : PA9 */
   GPIO_InitStruct.Pin = GPIO_PIN_9;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PB6 */
