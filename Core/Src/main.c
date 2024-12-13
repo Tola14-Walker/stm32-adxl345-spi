@@ -144,7 +144,9 @@ void adxl_init (void)
 	if (chipID == 0xE5)
 	{
 		adxl_write (POWER_CTL, 0x00);		// Standby mode for initialize
+
 //		adxl_write (POWER_CTL, 0x08);		// Charge power mode to measure mode and enable link bit
+
 		adxl_write (BW_RATE, 0x0D);			// Disable sleep mode Output Data Rate 800Hz
 
 		adxl_write (DATA_FORMAT, 0x0B);		// ±16 g full resolution 13-bit mode and right-justified mode
@@ -158,7 +160,8 @@ void adxl_init (void)
 
 
 		// The scale factor of threshold activity is 62.5mg/LSB = 0.0625g/LSB
-		adxl_write (THRESH_ACT, 0x06);		// set threshold activity 0.1875g
+		adxl_write (THRESH_ACT, 0x05);		// set threshold activity
+
 //		adxl_write (THRESH_INACT, 0x02);	// set threshold inactivity 0.125g
 //		// The scale factor of time inactivity is 1sec/LSB
 //		adxl_write (TIME_INACT, 0x1E);		// set time inactivity 30s
@@ -166,11 +169,11 @@ void adxl_init (void)
 		// Control activity detection axis
 		// ACT_ACT_CTL 0x60: 0110 0000 DC-coupled and detected X and Y axis
 		// ACT_INACT_CTL 0x06: 0000 0110 DC-coupled and detected X and Y axis
-		adxl_write (ACT_INACT_CTL, 0x60);
+		adxl_write (ACT_INACT_CTL, 0x40);
 
-//		adxl_write (INT_ENABLE, 0x00);		// Clear interrupt functions
-//		adxl_write (INT_MAP, 0x10);			// Activity D4 INIT2 and Inactivity D3 INT3
-//		adxl_write (INT_ENABLE, 0x9B);		// Enable interrupt activity and inactivity function
+		adxl_write (INT_ENABLE, 0x00);		// Clear interrupt functions
+		adxl_write (INT_MAP, 0x10);			// Activity D4 INIT2 and Inactivity D3 INT3
+		adxl_write (INT_ENABLE, 0x9B);		// Enable interrupt activity and inactivity function
 
 //		adxl_write (FIFO_CTL, 0xCA);		// 10-sample, trigger mode and link with INT1
 
@@ -198,7 +201,7 @@ int main(void)
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-   HAL_Init();
+  HAL_Init();
 
   /* USER CODE BEGIN Init */
 
@@ -229,6 +232,7 @@ int main(void)
     /* USER CODE BEGIN 3 */
 	  adxl_read (INT_SOURCE , &int_source, 1 );
 	  adxl_read (DATAX0, RxData, 6);
+
 	  x = ((RxData[1] << 8) | RxData[0]);
 	  y = ((RxData[3] << 8) | RxData[2]);
 	  z = ((RxData[5] << 8) | RxData[4]);
@@ -251,7 +255,7 @@ int main(void)
 		  printf("ID Device: 0x%X === X:\%.3f; Y:%.3f ; Z:%.3f \r\n",chipID,xg,yg,zg);
 	  }
 
-
+//	  printf("0x%X",int_source);
 //	  printf("ID Device: 0x%X === X:\%.3f; Y:%.3f ; Z:%.3f \r\n",chipID,xg,yg,zg);
 	  HAL_Delay(10);
   }
